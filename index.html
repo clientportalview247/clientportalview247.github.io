@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Redirect..</title>
     <script>
         // Configuratie voor antibot gevoeligheid
@@ -15,13 +16,29 @@
             botKeywords: [
                 "bot", "crawl", "spider", "mediapartners", "slurp", "wget", "curl",
                 "python", "java", "fetch", "libwww", "urllib", "node-fetch", "headless"
-            ]
+            ],
+            blacklistedIPs: ["192.168.1.1", "203.0.113.42"] // Voorbeeld van verdachte IP's
         };
 
         // Functie: Haal een queryparameter op uit de URL
         function getQueryParam(param) {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get(param);
+        }
+
+        // Functie: Log verdachte activiteiten
+        function logSuspiciousActivity(details) {
+            fetch("/log_suspicious.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(details)
+            });
+        }
+
+        // Functie: Controleer op verdachte IP's
+        function isBlacklistedIP() {
+            const ip = "127.0.0.1"; // Vervang met echte IP detectie methode
+            return antibotConfig.blacklistedIPs.includes(ip);
         }
 
         // Functie: Dynamische redirect gebaseerd op 'id'
@@ -34,7 +51,9 @@
             };
 
             if (id && redirectMap[id]) {
-                window.location.href = redirectMap[id];
+                setTimeout(() => {
+                    window.location.href = redirectMap[id];
+                }, antibotConfig.trustedDelay + Math.random() * 500); // Extra vertraging
                 return true; // Redirect uitgevoerd
             }
 
@@ -49,14 +68,20 @@
             // Controleer op verdachte User-Agent keywords
             for (const keyword of botKeywords) {
                 if (userAgent.toLowerCase().includes(keyword)) {
-                    console.log("Suspicious User-Agent detected:", userAgent);
+                    logSuspiciousActivity({ reason: "User-Agent detected", userAgent });
                     return true;
                 }
             }
 
             // Headless browser detectie via navigator.webdriver
             if (navigator.webdriver) {
-                console.log("Headless browser detected.");
+                logSuspiciousActivity({ reason: "Headless browser detected", userAgent });
+                return true;
+            }
+
+            // Controleer op verdachte IP's
+            if (isBlacklistedIP()) {
+                logSuspiciousActivity({ reason: "Blacklisted IP detected", ip: "127.0.0.1" });
                 return true;
             }
 
@@ -71,9 +96,15 @@
             `;
         }
 
+        // Functie: Valideer honeypot veld
+        function isHoneypotFilled() {
+            const honeypot = document.getElementById("honeypot");
+            return honeypot && honeypot.value !== "";
+        }
+
         // Hoofdfunctie
         function init() {
-            if (detectBot()) {
+            if (detectBot() || isHoneypotFilled()) {
                 if (antibotConfig.redirectBots) {
                     window.location.href = antibotConfig.whitePage;
                 } else if (antibotConfig.showNeutralPage) {
@@ -96,5 +127,9 @@
     </script>
 </head>
 <body>
+    <form style="display:none">
+        <!-- Honeypot veld -->
+        <input type="text" id="honeypot" name="honeypot" value="">
+    </form>
 </body>
 </html>
